@@ -1,30 +1,80 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const fs = require('fs');
+const multer = require('multer');
 const app = express();
 const port = 3500;
 
+var upload = multer({ dest: 'uploads/' })
+
 app.locals.pretty = true;
-app.use('/',express.static('public'));
-app.use('/assets',express.static('assets'));
-app.use(bodyParser.urlencoded({extended: true}));
+app.use('/', express.static('public'));
+app.use('/assets', express.static('assets'));
+app.use(bodyParser.urlencoded({extended:true}));
 app.use(bodyParser.json());
 app.set('view engine', 'pug');
-app.set('views', __dirname+'/views')
+app.set('views', './views');
 
 app.get('/book', getQuery);
 app.get('/book/:id', getQuery);
 app.get('/book/:id/:mode', getQuery);
+app.post('/book/create', postQuery);
+
+function postQuery(req, res) {
+  var tit = req.body.title;
+  var content = req.body.content;
+  var str = "";
+  fs.readFile('./data/book.json', 'utf-8', function(err, data){
+    if(err) res.status(500).send("Internal Server Error");
+    datas = JSON.parse(data);
+    var id = datas.books[datas.books.length - 1].id + 1;
+    datas.books.push({
+      tit,
+      content,
+      id
+    });
+    str = JSON.stringify(datas);
+    fs.writeFile('./data/book.json', str, (err) => {
+      if(err) res.status(500).send("Internal Server Error");
+      else {
+        var pugData = {pages: datas.books};
+        pugData.title = "도서 목록";
+        res.render('li', pugData);
+      }
+    });
+  });
+}
+
 
 function getQuery(req, res) {
-    var params = req.params;
-    var pageTits = ["MAIN", "PAGE1", "PAGE2", "PAGE3"];
+  var params = req.params;
+  var datas = null;
+  fs.readFile('./data/book.json', 'utf-8', function(err, data){
+    if(err) res.status(500).send("Internal Server Error");
+    datas = JSON.parse(data);
+    var pugData = {pages: datas.books};
     if(typeof params.id !== 'undefined') {
-        if(params.id == 'new') {
-            res.render('wr', {title:"글쓰기"});
-        }
-    } 
+      if(params.id == 'new') {
+        pugData.title = "신규 글 등록";
+        res.render('wr', pugData);
+      }
+      else {
+        pugData.title = "도서목록";
+        res.render('li', pugData);
+      }
+    }
     else {
-        var html = `
+      res.send('');
+    }
+  });
+}
+
+/*
+app.get('/page', (req, res) => {
+  console.log(req.query);
+  var id = req.query.id;
+  var pageTits = ["MAIN", "PAGE1", "PAGE2", "PAGE3"];
+  var html = `
   <ul>
     <li style="padding:1rem;list-style:none;float:left;width:20%;">
       <a href="/page?id=0">Main</a></li>
@@ -37,63 +87,31 @@ function getQuery(req, res) {
     <li style="clear:both;list-style:none;"></li>
   </ul>
   <div style="text-align:center">
-    <h1></h1>
-  </div>`;
-        res.send(html);
-    }
-}
-
-// app.get('/page', (req, res) => {
-//     console.log(req.query);
-//     var id = req.query.id;
-//     var pageTits = ["MAIN", "PAGE1", "PAGE2", "PAGE3"];
-//     var html = `
-//    <ul>
-//    <li style="padding:1rem; list-style:none; float:left; width:20%;">
-//     <a href="/page?id=0">Main</a></li>
-//    <li style="padding:1rem; list-style:none; float:left; width:20%;">
-//     <a href="/page?id=1">Page1</a></li>
-//    <li style="padding:1rem; list-style:none; float:left; width:20%;">
-//     <a href="/page?id=2">Page2</a></li>
-//    <li style="padding:1rem; list-style:none; float:left; width:20%;">
-//     <a href="/page?id=3">Page3</a></li>
-// <li style="clear:both; list-style:none;"></li>
-//    </ul> 
-//    <div style="text-align:center">
-//    <h1>${pageTits[id]}</h1>
-//    </div>
-//     `;
-//     res.send(html);
-// });
-
-app.get('/book/science', (req, res) => {
-    var html = `<h1>과학 카테고리</h1>`;
-    res.send(html);
+    <h1>${pageTits[id]}</h1>
+  </div>`; 
+  res.send(html);
 });
+*/
 app.get('/info', (req, res) => {
-    var now = new Date();
-    var html = `
-<!DOCTYPE html>
-<html lang="ko">
-<head>
+  var now = new Date();
+  var html = `
+  <!DOCTYPE html>
+  <html lang="ko">
+  <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Information</title>
-</head>
-<body>
-    <h1>Information Page</h1>
+  </head>
+  <body>
+    <h1>Information Page!!!!!!!!!</h1>
     <h2>${now}</h2>
-</body>
-</html>`;
-    res.send(html);
+  </body>
+  </html>`;
+  res.send(html);
 });
 
 //RESTful
-//app.get('/', (req, res) => res.send('Hello World!'));
-// app.post('/', (req, res) => res.send('Hello World!'));
-// app.put('/', (req, res) => res.send('Hello World!'));
-// app.delete('/', (req, res) => res.send('Hello World!'));
+//app.get('/', (req, res) => res.send('Hello World!~~~~~~~'));
 
-// app.listen(port, () => console.log(`Example app listening on port ${port}!`));
 app.listen(port, () => console.log(`http://localhost:${port}`));
