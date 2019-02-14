@@ -2,15 +2,38 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const multer = require('multer');
+
 const app = express();
 const port = 3500;
-
-var upload = multer({ dest: 'uploads/' })
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    var date = new Date();
+    var getMonth = (month) => {
+      if (month + 1 < 10) return "0" + (month + 1);
+      else return month;
+    }
+    var folder = "uploads/book/" + String(date.getFullYear()).substr(2, 2) + getMonth(date.getMonth() + "/");
+    if (!fs.existsSync(folder)) {
+      fs.mkdir(folder, (err) => {
+        if (!err) cb(null, folder);
+      });
+    } else cb(null, folder);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file).originalname;
+  }
+});
+var upload = multer({
+  storage: storage, 
+});
 
 app.locals.pretty = true;
 app.use('/', express.static('public'));
 app.use('/assets', express.static('assets'));
-app.use(bodyParser.urlencoded({extended:true}));
+app.use('/uploads', express.static('uploads'));
+app.use(bodyParser.urlencoded({
+  extended: true
+}));
 app.use(bodyParser.json());
 app.set('view engine', 'pug');
 app.set('views', './views');
@@ -18,14 +41,14 @@ app.set('views', './views');
 app.get('/book', getQuery);
 app.get('/book/:id', getQuery);
 app.get('/book/:id/:mode', getQuery);
-app.post('/book/create', postQuery);
+app.post('/book/create', upload.single('upfile'), postQuery);
 
 function postQuery(req, res) {
   var tit = req.body.title;
   var content = req.body.content;
   var str = "";
-  fs.readFile('./data/book.json', 'utf-8', function(err, data){
-    if(err) res.status(500).send("Internal Server Error");
+  fs.readFile('./data/book.json', 'utf-8', function (err, data) {
+    if (err) res.status(500).send("Internal Server Error");
     datas = JSON.parse(data);
     var id = datas.books[datas.books.length - 1].id + 1;
     datas.books.push({
@@ -35,9 +58,11 @@ function postQuery(req, res) {
     });
     str = JSON.stringify(datas);
     fs.writeFile('./data/book.json', str, (err) => {
-      if(err) res.status(500).send("Internal Server Error");
+      if (err) res.status(500).send("Internal Server Error");
       else {
-        var pugData = {pages: datas.books};
+        var pugData = {
+          pages: datas.books
+        };
         pugData.title = "도서 목록";
         res.render('li', pugData);
       }
@@ -49,21 +74,21 @@ function postQuery(req, res) {
 function getQuery(req, res) {
   var params = req.params;
   var datas = null;
-  fs.readFile('./data/book.json', 'utf-8', function(err, data){
-    if(err) res.status(500).send("Internal Server Error");
+  fs.readFile('./data/book.json', 'utf-8', function (err, data) {
+    if (err) res.status(500).send("Internal Server Error");
     datas = JSON.parse(data);
-    var pugData = {pages: datas.books};
-    if(typeof params.id !== 'undefined') {
-      if(params.id == 'new') {
+    var pugData = {
+      pages: datas.books
+    };
+    if (typeof params.id !== 'undefined') {
+      if (params.id == 'new') {
         pugData.title = "신규 글 등록";
         res.render('wr', pugData);
-      }
-      else {
+      } else {
         pugData.title = "도서목록";
         res.render('li', pugData);
       }
-    }
-    else {
+    } else {
       res.send('');
     }
   });
